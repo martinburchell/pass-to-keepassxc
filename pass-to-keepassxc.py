@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.8
+#!/usr/bin/env python
 
 # Turn a pass (https://www.passwordstore.org/) repository into an XML file to import into KeePassXC. XML is dumped into stdout.
 #
@@ -15,6 +15,7 @@
 #
 # Then go and configure additional settings in the KeePassXC GUI or CLI.
 
+import argparse
 from xml.etree import ElementTree as ET
 import sys
 import subprocess
@@ -167,10 +168,16 @@ def decrypt(gpg_encrypted_file: Path):
     return out.stdout.decode("utf-8")
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 1:
-        sys.exit(1)
-    password_store_dir = Path(sys.argv[1])
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Convert a pass repository into KeePassXC XML",
+    )
+
+    parser.add_argument("password_store_dir")
+
+    args = parser.parse_args()
+
+    password_store_dir = Path(args.password_store_dir)
     out = KeepassXCDump()
     for group in (x for x in password_store_dir.iterdir() if x.name[0] != "."):
         # treat a subdirectory as a keeepassxc 'group'
@@ -225,3 +232,6 @@ if __name__ == "__main__":
             out.add_group(group.name.removesuffix(".gpg"), keepassxc_entries)
     print(out)
     sys.exit(0)
+
+if __name__ == "__main__":
+    main()
