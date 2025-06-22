@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-# Turn a pass (https://www.passwordstore.org/) repository into an XML file to import into KeePassXC. XML is dumped into stdout.
+# Turn a pass (https://www.passwordstore.org/) repository into an XML file
+# to import into KeePassXC. XML is dumped into stdout.
 #
 # Usage:
 # python3 pass-to-keepassxc.py <password store directory>
@@ -168,16 +169,7 @@ def decrypt(gpg_encrypted_file: Path):
     return out.stdout.decode("utf-8")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Convert a pass repository into KeePassXC XML",
-    )
-
-    parser.add_argument("password_store_dir")
-
-    args = parser.parse_args()
-
-    password_store_dir = Path(args.password_store_dir)
+def convert_to_xml(password_store_dir: Path) -> str:
     out = KeepassXCDump()
     for group in (x for x in password_store_dir.iterdir() if x.name[0] != "."):
         # treat a subdirectory as a keeepassxc 'group'
@@ -230,8 +222,22 @@ def main() -> None:
                 )
             )
             out.add_group(group.name.removesuffix(".gpg"), keepassxc_entries)
+
+    return out
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Convert a pass repository into KeePassXC XML",
+    )
+
+    parser.add_argument("password_store_dir")
+
+    args = parser.parse_args()
+    password_store_path = Path(args.password_store_dir)
+    out = convert_to_xml(password_store_path)
     print(out)
-    sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
