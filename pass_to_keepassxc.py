@@ -169,7 +169,7 @@ def decrypt(gpg_encrypted_file: Path):
     return out.stdout.decode("utf-8")
 
 
-def convert_to_xml(password_store_dir: Path) -> str:
+def convert_to_xml(password_store_dir: Path) -> KeepassXCDump:
     out = KeepassXCDump()
     for group in (x for x in password_store_dir.iterdir() if x.name[0] != "."):
         # treat a subdirectory as a keeepassxc 'group'
