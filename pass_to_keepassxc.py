@@ -60,7 +60,15 @@ class KeepassXCEntry:
         </Entry>
     """
 
-    def __init__(self, username, password, url, title, notes="", totp=""):
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        url: str,
+        title: str,
+        notes: str = "",
+        totp: str = "",
+    ) -> None:
         self.root = ET.Element("Entry")
         self.add_string_field("Notes", notes)
         self.add_string_field("UserName", username)
