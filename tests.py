@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 from tempfile import mkdtemp, mkstemp
+from typing import Optional
 from unittest import mock, TestCase
 
 from pass_to_keepassxc import convert_to_xml
@@ -59,9 +60,19 @@ class ConvertToXmlTests(TestCase):
             value_dict = self._convert_to_dict()
             self.assertEqual(value_dict["UserName"], "username")
 
-    def _convert_to_dict(self) -> dict[str, str]:
+    def _convert_to_dict(self) -> dict[str, Optional[str]]:
         out = convert_to_xml(Path(self.password_store))
-        keys = [x.text for x in out.root.findall(".//String/Key")]
-        values = [x.text for x in out.root.findall(".//String/Value")]
 
-        return dict(zip(keys, values))
+        value_dict: dict[str, Optional[str]] = {}
+
+        for string in out.root.findall(".//String"):
+            key_element = string.find("Key")
+            value_element = string.find("Value")
+
+            assert key_element is not None
+            assert value_element is not None
+
+            if key_element.text:
+                value_dict[key_element.text] = value_element.text
+
+        return value_dict

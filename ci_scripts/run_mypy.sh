@@ -15,4 +15,4 @@ MYPY=${HOME}/venv/bin/mypy
 
 cd "${PROJECT_ROOT}"
 
-${MYPY} --strict
+${MYPY} --strict .
