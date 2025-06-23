@@ -60,6 +60,20 @@ class ConvertToXmlTests(TestCase):
             value_dict = self._convert_to_dict()
             self.assertEqual(value_dict["UserName"], "username")
 
+    def test_converts_notes(self) -> None:
+        test_dir = mkdtemp(dir=self.password_store)
+        mkstemp(dir=test_dir, suffix=".gpg")
+
+        password = ""
+        gpg_content = "\n".join([password, "some stuff"])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+
+            value_dict = self._convert_to_dict()
+            self.assertEqual(value_dict["Notes"], "some stuff")
+
     def _convert_to_dict(self) -> dict[str, Optional[str]]:
         out = convert_to_xml(Path(self.password_store))
 
