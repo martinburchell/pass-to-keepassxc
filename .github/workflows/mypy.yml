@@ -1,6 +1,6 @@
 ---
 # yamllint disable rule:line-length
-name: Tests
+name: MyPy
 # yamllint disable-line rule:truthy
 on:
     push:
@@ -10,7 +10,7 @@ on:
             - ci_scripts/setup_python.sh
             - ci_scripts/run_mypy.sh
 jobs:
-    tests:
+    mypy:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
               run: |
                 set -euo pipefail
                 ${GITHUB_WORKSPACE}/ci_scripts/setup_python.sh ${GITHUB_WORKSPACE}
-            - name: Tests
+            - name: MyPy
               run: |
                 set -euo pipefail
                 ${GITHUB_WORKSPACE}/ci_scripts/run_mypy.sh ${GITHUB_WORKSPACE}
