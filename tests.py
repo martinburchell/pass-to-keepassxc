@@ -39,7 +39,6 @@ class ConvertToXmlTests(TestCase):
         with mock.patch.multiple(
             "pass_to_keepassxc.subprocess", run=self.mock_run
         ):
-
             value_dict = self._convert_to_dict("./Entry/String")
             self.assertEqual(value_dict["UserName"], Path(filename).stem)
 
@@ -52,9 +51,20 @@ class ConvertToXmlTests(TestCase):
         with mock.patch.multiple(
             "pass_to_keepassxc.subprocess", run=self.mock_run
         ):
-
             value_dict = self._convert_to_dict("./Entry/String")
             self.assertEqual(value_dict["UserName"], "username")
+
+    def test_converts_url(self) -> None:
+        mkstemp(dir=self.password_store, suffix=".gpg")
+
+        password = ""
+        gpg_content = "\n".join([password, "url:www.example.org"])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+            value_dict = self._convert_to_dict("./Entry/String")
+            self.assertEqual(value_dict["URL"], "www.example.org")
 
     def test_converts_notes(self) -> None:
         mkstemp(dir=self.password_store, suffix=".gpg")
@@ -65,7 +75,6 @@ class ConvertToXmlTests(TestCase):
         with mock.patch.multiple(
             "pass_to_keepassxc.subprocess", run=self.mock_run
         ):
-
             value_dict = self._convert_to_dict("./Entry/String")
             self.assertEqual(value_dict["Notes"], "some stuff")
 
@@ -79,7 +88,6 @@ class ConvertToXmlTests(TestCase):
         with mock.patch.multiple(
             "pass_to_keepassxc.subprocess", run=self.mock_run
         ):
-
             value_dict = self._convert_to_dict("./Group/Entry/String")
             self.assertEqual(value_dict["Password"], "secret")
 
@@ -94,7 +102,6 @@ class ConvertToXmlTests(TestCase):
         with mock.patch.multiple(
             "pass_to_keepassxc.subprocess", run=self.mock_run
         ):
-
             value_dict = self._convert_to_dict("./Group/Group/Entry/String")
             self.assertEqual(value_dict["Password"], "secret")
 
