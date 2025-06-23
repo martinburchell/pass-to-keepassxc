@@ -30,18 +30,6 @@ class ConvertToXmlTests(TestCase):
             value_dict = self._convert_to_dict("./Entry/String")
             self.assertEqual(value_dict["Password"], "secret")
 
-    def test_username_defaults_to_filename(self) -> None:
-        _, filename = mkstemp(dir=self.password_store, suffix=".gpg")
-
-        password = ""
-        gpg_content = "\n".join([password])
-        self.mock_decode.return_value = gpg_content
-        with mock.patch.multiple(
-            "pass_to_keepassxc.subprocess", run=self.mock_run
-        ):
-            value_dict = self._convert_to_dict("./Entry/String")
-            self.assertEqual(value_dict["UserName"], Path(filename).stem)
-
     def test_title_defaults_to_filename(self) -> None:
         _, filename = mkstemp(dir=self.password_store, suffix=".gpg")
 
@@ -65,6 +53,18 @@ class ConvertToXmlTests(TestCase):
         ):
             value_dict = self._convert_to_dict("./Entry/String")
             self.assertEqual(value_dict["UserName"], "username")
+
+    def test_username_defaults_to_empty(self) -> None:
+        mkstemp(dir=self.password_store, suffix=".gpg")
+
+        password = ""
+        gpg_content = "\n".join([password])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+            value_dict = self._convert_to_dict("./Entry/String")
+            self.assertEqual(value_dict["UserName"], "")
 
     def test_converts_url(self) -> None:
         mkstemp(dir=self.password_store, suffix=".gpg")

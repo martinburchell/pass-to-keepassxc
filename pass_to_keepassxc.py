@@ -181,21 +181,23 @@ class Converter:
             elif file_or_dir.is_file():
                 self.add_entry(file_or_dir, parent_element)
 
-    def add_entry(self, file_or_dir: Path, parent_element: ET.Element) -> None:
-        print(file_or_dir, file=sys.stderr)
-        filename = file_or_dir.name.removesuffix(".gpg")
+    def add_entry(self, filepath: Path, parent_element: ET.Element) -> None:
+        print(filepath, file=sys.stderr)
+        filename = filepath.name.removesuffix(".gpg")
         try:
-            file_contents = decrypt(file_or_dir)
+            file_contents = decrypt(filepath)
             password, notes, totp, parsed_username, parsed_url = (
                 parse_pass_format(file_contents)
             )
             url = parsed_url or filename
-            username = parsed_username or filename
+            username = parsed_username or ""
+
+            title = parsed_url or filename
             entry = KeepassXCEntry(
                 username=username,
                 password=password,
                 url=url,
-                title=username,
+                title=title,
                 notes=notes,
                 totp=totp,
             )
