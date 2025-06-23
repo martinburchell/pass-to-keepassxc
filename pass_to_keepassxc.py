@@ -21,6 +21,7 @@ from xml.etree import ElementTree as ET
 import sys
 import subprocess
 from pathlib import Path
+from typing import Any, Generator, Optional, Tuple
 
 
 class KeepassXCEntry:
@@ -67,7 +68,7 @@ class KeepassXCEntry:
         url: str,
         title: str,
         notes: str = "",
-        totp: str = "",
+        totp: Optional[str] = None,
     ) -> None:
         self.root = ET.Element("Entry")
         self.add_string_field("Notes", notes)
@@ -75,13 +76,13 @@ class KeepassXCEntry:
         self.add_string_field("Password", password)
         self.add_string_field("URL", url)
         self.add_string_field("Title", title)
-        self.add_string_field("otp", totp)
+        self.add_string_field("otp", totp or "")
         self.add_auto_type()
 
-    def __str__(self):
+    def __str__(self) -> Any:
         return ET.tostring(self.root, encoding="utf-8")
 
-    def add_string_field(self, k, v):
+    def add_string_field(self, k: str, v: str) -> "KeepassXCEntry":
         string = ET.SubElement(self.root, "String")
         key = ET.SubElement(string, "Key")
         key.text = k
@@ -90,7 +91,7 @@ class KeepassXCEntry:
         value.set("ProtectInMemory", "True")
         return self
 
-    def add_auto_type(self):
+    def add_auto_type(self) -> "KeepassXCEntry":
         autotype = ET.SubElement(self.root, "AutoType")
         enabled = ET.SubElement(autotype, "Enabled")
         enabled.text = "True"
@@ -115,34 +116,33 @@ class KeepassXCDump:
     </KeePassFile>
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.KeePassFile = ET.Element("KeePassFile")
         Root = ET.SubElement(self.KeePassFile, "Root")
         self.root = ET.SubElement(Root, "Group")
         root_name = ET.SubElement(self.root, "Name")
         root_name.text = "Root"
 
-    def add_group(self, name, entries: list[KeepassXCEntry]):
+    def add_group(self, name: str, entries: list[KeepassXCEntry]) -> None:
         group_root = ET.SubElement(self.root, "Group")
         group_name = ET.SubElement(group_root, "Name")
         group_name.text = name
         group_root.extend(map(lambda x: x.root, entries))
 
-    def __str__(self):
+    def __str__(self) -> Any:
         return ET.tostring(self.KeePassFile, encoding="unicode")
 
 
 class KeepassXCGroup:
-    def __init__(self, group_name):
+    def __init__(self, group_name: str) -> None:
         self.root = ET.Element("Group")
         name = ET.SubElement(self.root, "Name")
         name.text = group_name
 
-    def add_entry(self, entry: KeepassXCEntry):
-        self.root.append(entry)
 
-
-def parse_pass_format(src: str):
+def parse_pass_format(
+    src: str,
+) -> Tuple[str, str, Optional[str], Optional[str], Optional[str]]:
     it = src.split("\n")
     password = it[0]
     totp = next((x for x in it if x.startswith("otpauth://")), None)
@@ -160,7 +160,7 @@ def parse_pass_format(src: str):
     return (password, notes, totp, username, url)
 
 
-def find_files(directory: Path):
+def find_files(directory: Path) -> Generator[Path, None, None]:
     for node in (x for x in directory.iterdir() if x.name[0] != "."):
         if node.is_dir():
             yield from find_files(Path(node))
@@ -168,7 +168,7 @@ def find_files(directory: Path):
             yield Path(node)
 
 
-def decrypt(gpg_encrypted_file: Path):
+def decrypt(gpg_encrypted_file: Path) -> str:
     out = subprocess.run(
         ["gpg", "--quiet", "--decrypt", gpg_encrypted_file.resolve()],
         capture_output=True,
@@ -191,10 +191,10 @@ def convert_to_xml(password_store_dir: Path) -> KeepassXCDump:
                 except UnicodeDecodeError:
                     # not UTF-8; skip it
                     continue
-                password, notes, totp, username, url_parsed = (
+                password, notes, totp, parsed_username, url_parsed = (
                     parse_pass_format(file_contents)
                 )
-                username = username or default_username
+                username = parsed_username or default_username
                 url = url_parsed or parent_name
                 keepassxc_entries.append(
                     KeepassXCEntry(
@@ -214,10 +214,11 @@ def convert_to_xml(password_store_dir: Path) -> KeepassXCDump:
             except UnicodeDecodeError:
                 # not UTF-8; skip it
                 continue
-            password, notes, totp, username, url_parsed = parse_pass_format(
-                file_contents
+            password, notes, totp, parsed_username, url_parsed = (
+                parse_pass_format(file_contents)
             )
             url = url_parsed or filename
+            username = parsed_username or filename
             keepassxc_entries.append(
                 KeepassXCEntry(
                     username=username,
