@@ -1,0 +1,67 @@
+from pathlib import Path
+import shutil
+from tempfile import mkdtemp, mkstemp
+from unittest import mock, TestCase
+
+from pass_to_keepassxc import convert_to_xml
+
+
+class ConvertToXmlTests(TestCase):
+    def setUp(self) -> None:
+        self.password_store = mkdtemp()
+        self.mock_decode = mock.Mock()
+        mock_stdout = mock.Mock(decode=self.mock_decode)
+        mock_completed_process = mock.Mock(stdout=mock_stdout)
+        self.mock_run = mock.Mock(return_value=mock_completed_process)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.password_store)
+
+    def test_converts_password(self) -> None:
+        test_dir = mkdtemp(dir=self.password_store)
+        mkstemp(dir=test_dir, suffix=".gpg")
+
+        password = "secret"
+        gpg_content = "\n".join([password])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+
+            value_dict = self._convert_to_dict()
+            self.assertEqual(value_dict["Password"], "secret")
+
+    def test_defaults_username_to_filename(self) -> None:
+        test_dir = mkdtemp(dir=self.password_store)
+        _, filename = mkstemp(dir=test_dir, suffix=".gpg")
+
+        password = ""
+        gpg_content = "\n".join([password])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+
+            value_dict = self._convert_to_dict()
+            self.assertEqual(value_dict["UserName"], Path(filename).stem)
+
+    def test_converts_username(self) -> None:
+        test_dir = mkdtemp(dir=self.password_store)
+        mkstemp(dir=test_dir, suffix=".gpg")
+
+        password = ""
+        gpg_content = "\n".join([password, "login:username"])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+
+            value_dict = self._convert_to_dict()
+            self.assertEqual(value_dict["UserName"], "username")
+
+    def _convert_to_dict(self) -> dict[str, str]:
+        out = convert_to_xml(Path(self.password_store))
+        keys = [x.text for x in out.root.findall(".//String/Key")]
+        values = [x.text for x in out.root.findall(".//String/Value")]
+
+        return dict(zip(keys, values))

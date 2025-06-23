@@ -1,0 +1,27 @@
+---
+# yamllint disable rule:line-length
+name: Tests
+# yamllint disable-line rule:truthy
+on:
+    push:
+        paths:
+            - '**.py'
+            - .github/workflows/tests.yml
+            - ci_scripts/setup_python.sh
+            - ci_scripts/run_tests.sh
+jobs:
+    tests:
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.10"
+            - name: Setup Python
+              run: |
+                set -euo pipefail
+                ${GITHUB_WORKSPACE}/ci_scripts/setup_python.sh ${GITHUB_WORKSPACE}
+            - name: Tests
+              run: |
+                set -euo pipefail
+                ${GITHUB_WORKSPACE}/ci_scripts/run_tests.sh ${GITHUB_WORKSPACE}
