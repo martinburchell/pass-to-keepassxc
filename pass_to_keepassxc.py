@@ -21,7 +21,6 @@ from xml.etree import ElementTree as ET
 import sys
 import subprocess
 from pathlib import Path
-from typing import List
 
 
 class KeepassXCEntry:
@@ -115,7 +114,7 @@ class KeepassXCDump:
         root_name = ET.SubElement(self.root, "Name")
         root_name.text = "Root"
 
-    def add_group(self, name, entries: List[KeepassXCEntry]):
+    def add_group(self, name, entries: list[KeepassXCEntry]):
         group_root = ET.SubElement(self.root, "Group")
         group_name = ET.SubElement(group_root, "Name")
         group_name.text = name
@@ -172,9 +171,9 @@ def decrypt(gpg_encrypted_file: Path):
 def convert_to_xml(password_store_dir: Path) -> KeepassXCDump:
     out = KeepassXCDump()
     for group in (x for x in password_store_dir.iterdir() if x.name[0] != "."):
+        keepassxc_entries: list[KeepassXCEntry] = []
         # treat a subdirectory as a keeepassxc 'group'
         if group.is_dir():
-            keepassxc_entries: List[KeepassXCEntry] = []
             for entry in find_files(group):
                 print(entry, file=sys.stderr)
                 parent_name = f"{entry.parent.name}"
@@ -201,7 +200,6 @@ def convert_to_xml(password_store_dir: Path) -> KeepassXCDump:
                 )
             out.add_group(group.name.removesuffix(".gpg"), keepassxc_entries)
         elif group.is_file():
-            keepassxc_entries: List[KeepassXCEntry] = []
             filename = group.name.removesuffix(".gpg")
             try:
                 file_contents = decrypt(group)
