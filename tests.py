@@ -4,7 +4,7 @@ from tempfile import mkdtemp, mkstemp
 from typing import Optional
 from unittest import mock, TestCase
 
-from pass_to_keepassxc import convert_to_xml
+from pass_to_keepassxc import Converter
 
 
 class ConvertToXmlTests(TestCase):
@@ -19,6 +19,57 @@ class ConvertToXmlTests(TestCase):
         shutil.rmtree(self.password_store)
 
     def test_converts_password(self) -> None:
+        _, filename = mkstemp(dir=self.password_store, suffix=".gpg")
+
+        password = "secret"
+        gpg_content = "\n".join([password])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+            value_dict = self._convert_to_dict("./Entry/String")
+            self.assertEqual(value_dict["Password"], "secret")
+
+    def test_defaults_username_to_filename(self) -> None:
+        _, filename = mkstemp(dir=self.password_store, suffix=".gpg")
+
+        password = ""
+        gpg_content = "\n".join([password])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+
+            value_dict = self._convert_to_dict("./Entry/String")
+            self.assertEqual(value_dict["UserName"], Path(filename).stem)
+
+    def test_converts_username(self) -> None:
+        mkstemp(dir=self.password_store, suffix=".gpg")
+
+        password = ""
+        gpg_content = "\n".join([password, "login:username"])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+
+            value_dict = self._convert_to_dict("./Entry/String")
+            self.assertEqual(value_dict["UserName"], "username")
+
+    def test_converts_notes(self) -> None:
+        mkstemp(dir=self.password_store, suffix=".gpg")
+
+        password = ""
+        gpg_content = "\n".join([password, "some stuff"])
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+
+            value_dict = self._convert_to_dict("./Entry/String")
+            self.assertEqual(value_dict["Notes"], "some stuff")
+
+    def test_converts_password_in_subdirectory(self) -> None:
         test_dir = mkdtemp(dir=self.password_store)
         mkstemp(dir=test_dir, suffix=".gpg")
 
@@ -29,57 +80,30 @@ class ConvertToXmlTests(TestCase):
             "pass_to_keepassxc.subprocess", run=self.mock_run
         ):
 
-            value_dict = self._convert_to_dict()
+            value_dict = self._convert_to_dict("./Group/Entry/String")
             self.assertEqual(value_dict["Password"], "secret")
 
-    def test_defaults_username_to_filename(self) -> None:
+    def test_converts_password_in_subsubdirectory(self) -> None:
         test_dir = mkdtemp(dir=self.password_store)
-        _, filename = mkstemp(dir=test_dir, suffix=".gpg")
+        test_subdir = mkdtemp(dir=test_dir)
+        mkstemp(dir=test_subdir, suffix=".gpg")
 
-        password = ""
+        password = "secret"
         gpg_content = "\n".join([password])
         self.mock_decode.return_value = gpg_content
         with mock.patch.multiple(
             "pass_to_keepassxc.subprocess", run=self.mock_run
         ):
 
-            value_dict = self._convert_to_dict()
-            self.assertEqual(value_dict["UserName"], Path(filename).stem)
+            value_dict = self._convert_to_dict("./Group/Group/Entry/String")
+            self.assertEqual(value_dict["Password"], "secret")
 
-    def test_converts_username(self) -> None:
-        test_dir = mkdtemp(dir=self.password_store)
-        mkstemp(dir=test_dir, suffix=".gpg")
-
-        password = ""
-        gpg_content = "\n".join([password, "login:username"])
-        self.mock_decode.return_value = gpg_content
-        with mock.patch.multiple(
-            "pass_to_keepassxc.subprocess", run=self.mock_run
-        ):
-
-            value_dict = self._convert_to_dict()
-            self.assertEqual(value_dict["UserName"], "username")
-
-    def test_converts_notes(self) -> None:
-        test_dir = mkdtemp(dir=self.password_store)
-        mkstemp(dir=test_dir, suffix=".gpg")
-
-        password = ""
-        gpg_content = "\n".join([password, "some stuff"])
-        self.mock_decode.return_value = gpg_content
-        with mock.patch.multiple(
-            "pass_to_keepassxc.subprocess", run=self.mock_run
-        ):
-
-            value_dict = self._convert_to_dict()
-            self.assertEqual(value_dict["Notes"], "some stuff")
-
-    def _convert_to_dict(self) -> dict[str, Optional[str]]:
-        out = convert_to_xml(Path(self.password_store))
+    def _convert_to_dict(self, string_path: str) -> dict[str, Optional[str]]:
+        out = Converter().to_xml(Path(self.password_store))
 
         value_dict: dict[str, Optional[str]] = {}
 
-        for string in out.root.findall(".//String"):
+        for string in out.root.findall(string_path):
             key_element = string.find("Key")
             value_element = string.find("Value")
 

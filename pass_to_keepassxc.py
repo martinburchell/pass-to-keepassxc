@@ -21,7 +21,7 @@ from xml.etree import ElementTree as ET
 import sys
 import subprocess
 from pathlib import Path
-from typing import Any, Generator, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 
 class KeepassXCEntry:
@@ -109,8 +109,9 @@ class KeepassXCDump:
     <KeePassFile>
       <Root>
         <Group>
-                <Name>{group name}</Name>
+                <Name>Root</Name>
                 [<Entry>...</Entry>...]
+                [<Group>...</Group>...]
         </Group>
       </Root>
     </KeePassFile>
@@ -123,21 +124,15 @@ class KeepassXCDump:
         root_name = ET.SubElement(self.root, "Name")
         root_name.text = "Root"
 
-    def add_group(self, name: str, entries: list[KeepassXCEntry]) -> None:
-        group_root = ET.SubElement(self.root, "Group")
+    def add_group(self, name: str, parent_element: ET.Element) -> ET.Element:
+        group_root = ET.SubElement(parent_element, "Group")
         group_name = ET.SubElement(group_root, "Name")
         group_name.text = name
-        group_root.extend(map(lambda x: x.root, entries))
+
+        return group_root
 
     def __str__(self) -> Any:
         return ET.tostring(self.KeePassFile, encoding="unicode")
-
-
-class KeepassXCGroup:
-    def __init__(self, group_name: str) -> None:
-        self.root = ET.Element("Group")
-        name = ET.SubElement(self.root, "Name")
-        name.text = group_name
 
 
 def parse_pass_format(
@@ -160,14 +155,6 @@ def parse_pass_format(
     return (password, notes, totp, username, url)
 
 
-def find_files(directory: Path) -> Generator[Path, None, None]:
-    for node in (x for x in directory.iterdir() if x.name[0] != "."):
-        if node.is_dir():
-            yield from find_files(Path(node))
-        elif node.is_file():
-            yield Path(node)
-
-
 def decrypt(gpg_encrypted_file: Path) -> str:
     out = subprocess.run(
         ["gpg", "--quiet", "--decrypt", gpg_encrypted_file.resolve()],
@@ -176,62 +163,45 @@ def decrypt(gpg_encrypted_file: Path) -> str:
     return out.stdout.decode("utf-8")
 
 
-def convert_to_xml(password_store_dir: Path) -> KeepassXCDump:
-    out = KeepassXCDump()
-    for group in (x for x in password_store_dir.iterdir() if x.name[0] != "."):
-        keepassxc_entries: list[KeepassXCEntry] = []
-        # treat a subdirectory as a keeepassxc 'group'
-        if group.is_dir():
-            for entry in find_files(group):
-                print(entry, file=sys.stderr)
-                parent_name = f"{entry.parent.name}"
-                default_username = entry.name.removesuffix(".gpg")
-                try:
-                    file_contents = decrypt(entry)
-                except UnicodeDecodeError:
-                    # not UTF-8; skip it
-                    continue
-                password, notes, totp, parsed_username, url_parsed = (
-                    parse_pass_format(file_contents)
-                )
-                username = parsed_username or default_username
-                url = url_parsed or parent_name
-                keepassxc_entries.append(
-                    KeepassXCEntry(
-                        username=username,
-                        password=password,
-                        url=url,
-                        title=username,
-                        notes=notes,
-                        totp=totp,
-                    )
-                )
-            out.add_group(group.name.removesuffix(".gpg"), keepassxc_entries)
-        elif group.is_file():
-            filename = group.name.removesuffix(".gpg")
-            try:
-                file_contents = decrypt(group)
-            except UnicodeDecodeError:
-                # not UTF-8; skip it
-                continue
+class Converter:
+    def to_xml(self, password_store_dir: Path) -> KeepassXCDump:
+        self.out = KeepassXCDump()
+        self.iterate_over_password_store(password_store_dir, self.out.root)
+        return self.out
+
+    def iterate_over_password_store(
+        self, current_dir: Path, parent_element: ET.Element
+    ) -> None:
+        for file_or_dir in (
+            x for x in current_dir.iterdir() if x.name[0] != "."
+        ):
+            if file_or_dir.is_dir():
+                group = self.out.add_group(file_or_dir.name, parent_element)
+                self.iterate_over_password_store(file_or_dir, group)
+            elif file_or_dir.is_file():
+                self.add_entry(file_or_dir, parent_element)
+
+    def add_entry(self, file_or_dir: Path, parent_element: ET.Element) -> None:
+        print(file_or_dir, file=sys.stderr)
+        filename = file_or_dir.name.removesuffix(".gpg")
+        try:
+            file_contents = decrypt(file_or_dir)
             password, notes, totp, parsed_username, url_parsed = (
                 parse_pass_format(file_contents)
             )
             url = url_parsed or filename
             username = parsed_username or filename
-            keepassxc_entries.append(
-                KeepassXCEntry(
-                    username=username,
-                    password=password,
-                    url=url,
-                    title=username,
-                    notes=notes,
-                    totp=totp,
-                )
+            entry = KeepassXCEntry(
+                username=username,
+                password=password,
+                url=url,
+                title=username,
+                notes=notes,
+                totp=totp,
             )
-            out.add_group(group.name.removesuffix(".gpg"), keepassxc_entries)
-
-    return out
+            parent_element.append(entry.root)
+        except UnicodeDecodeError:
+            print("Skipping due to conversion error!", file=sys.stderr)
 
 
 def main() -> None:
@@ -243,7 +213,8 @@ def main() -> None:
 
     args = parser.parse_args()
     password_store_path = Path(args.password_store_dir)
-    out = convert_to_xml(password_store_path)
+    converter = Converter()
+    out = converter.to_xml(password_store_path)
     print(out)
 
 
