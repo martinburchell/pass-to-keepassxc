@@ -178,15 +178,16 @@ def convert_to_xml(password_store_dir: Path) -> KeepassXCDump:
             for entry in find_files(group):
                 print(entry, file=sys.stderr)
                 parent_name = f"{entry.parent.name}"
-                username = entry.name.removesuffix(".gpg")
+                default_username = entry.name.removesuffix(".gpg")
                 try:
                     file_contents = decrypt(entry)
                 except UnicodeDecodeError:
                     # not UTF-8; skip it
                     continue
-                password, notes, totp, _, url_parsed = parse_pass_format(
-                    file_contents
+                password, notes, totp, username, url_parsed = (
+                    parse_pass_format(file_contents)
                 )
+                username = username or default_username
                 url = url_parsed or parent_name
                 keepassxc_entries.append(
                     KeepassXCEntry(
