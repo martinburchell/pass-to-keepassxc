@@ -186,10 +186,10 @@ class Converter:
         filename = file_or_dir.name.removesuffix(".gpg")
         try:
             file_contents = decrypt(file_or_dir)
-            password, notes, totp, parsed_username, url_parsed = (
+            password, notes, totp, parsed_username, parsed_url = (
                 parse_pass_format(file_contents)
             )
-            url = url_parsed or filename
+            url = parsed_url or filename
             username = parsed_username or filename
             entry = KeepassXCEntry(
                 username=username,
