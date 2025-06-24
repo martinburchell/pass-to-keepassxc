@@ -192,12 +192,11 @@ class Converter:
             url = parsed_url or ""
             username = parsed_username or ""
 
-            title = parsed_url or filename
             entry = KeepassXCEntry(
                 username=username,
                 password=password,
                 url=url,
-                title=title,
+                title=filename,
                 notes=notes,
                 totp=totp,
             )

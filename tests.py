@@ -102,6 +102,34 @@ class ConvertToXmlTests(TestCase):
             value_dict = self._convert_to_dict("./Entry/String")
             self.assertEqual(value_dict["Notes"], "some stuff")
 
+    def test_whole_record_converted(self) -> None:
+        _, filename = mkstemp(dir=self.password_store, suffix=".gpg")
+
+        password = "secret"
+        gpg_content = "\n".join(
+            [
+                password,
+                "login:username",
+                "url:www.example.org",
+                "some stuff",
+                "otpauth://totp/ietfuser?secret=NBSWY3DPFQQHO33SNRSAU",
+            ]
+        )
+        self.mock_decode.return_value = gpg_content
+        with mock.patch.multiple(
+            "pass_to_keepassxc.subprocess", run=self.mock_run
+        ):
+            value_dict = self._convert_to_dict("./Entry/String")
+            self.assertEqual(value_dict["Notes"], "some stuff")
+            self.assertEqual(
+                value_dict["otp"],
+                "otpauth://totp/ietfuser?secret=NBSWY3DPFQQHO33SNRSAU",
+            )
+            self.assertEqual(value_dict["Password"], "secret")
+            self.assertEqual(value_dict["Title"], Path(filename).stem)
+            self.assertEqual(value_dict["URL"], "www.example.org")
+            self.assertEqual(value_dict["UserName"], "username")
+
     def test_converts_password_in_subdirectory(self) -> None:
         test_dir = mkdtemp(dir=self.password_store)
         mkstemp(dir=test_dir, suffix=".gpg")
