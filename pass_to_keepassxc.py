@@ -189,7 +189,7 @@ class Converter:
             password, notes, totp, parsed_username, parsed_url = (
                 parse_pass_format(file_contents)
             )
-            url = parsed_url or filename
+            url = parsed_url or ""
             username = parsed_username or ""
 
             title = parsed_url or filename
